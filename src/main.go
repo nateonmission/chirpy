@@ -9,17 +9,6 @@ import (
 func main() {
 	mux := http.NewServeMux()
 
-	wd, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println("Working directory:", wd)
-
-	_, err = os.Stat("./public_html/index.html")
-	if err != nil {
-		log.Fatal("Cannot find ./public_html/index.html: ", err)
-	}
-
 	fs := http.FileServer(http.Dir("./public_html"))
 	mux.Handle("/", fs)
 

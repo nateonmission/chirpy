@@ -3,14 +3,21 @@ package main
 import (
 	"net/http"
 	"log"
-	"os"
 )
 
+
 func main() {
+	cfg := &apiConfig{}
+	cfg.fileServerHits.Store(0)
 	mux := http.NewServeMux()
 
 	fs := http.FileServer(http.Dir("./public_html"))
-	mux.Handle("/", fs)
+	appHandler := http.StripPrefix("/app/", fs)
+
+	mux.Handle("/app/", cfg.middlewareMetricsInc(appHandler))
+	mux.HandleFunc("GET /api/healthz", healthHandler)
+	mux.HandleFunc("GET /admin/metrics", cfg.metricsHandler)
+	mux.HandleFunc("POST /admin/reset", cfg.resetHandler)
 
 	server := http.Server{
 		Addr: ":8080",

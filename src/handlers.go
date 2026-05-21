@@ -4,6 +4,8 @@ package main
 import(
 	"net/http"
 	"fmt"
+	"encoding/json"
+	"log"
 )
 
 func healthHandler(w http.ResponseWriter, r *http.Request){
@@ -29,6 +31,31 @@ func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request){
 	w.WriteHeader(http.StatusOK)
 	body := fmt.Sprintf("Hits: %d\n", cfg.fileServerHits.Load())
 	w.Write([]byte(body))
+}
+
+func validateChirpHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+    params := chirpToValidate{}
+    err := decoder.Decode(&params)
+    if err != nil {
+		log.Printf("Error decoding parameters: %s", err)
+		code := 500
+		msg := fmt.Sprintf("Error decoding parameters: %s", err)
+		respondWithError(w, code, msg) 
+    }
+
+	if len(params.Body) <= 140 {
+		code := 200
+		respondWithJSON(w, code, params)
+	} else if len(params.Body) > 140 {
+		code := 400
+		msg := fmt.Sprintf("Chirp is too long")
+		respondWithError(w, code, msg) 
+	} else {
+		code := 500
+		msg := fmt.Sprintf("Unknow Error")
+		respondWithError(w, code , msg) 
+	}
 }
 
 

@@ -6,6 +6,7 @@ import(
 	"fmt"
 	"encoding/json"
 	"log"
+	"github.com/chirpy/src/internal/database"
 )
 
 func healthHandler(w http.ResponseWriter, r *http.Request){
@@ -56,6 +57,27 @@ func validateChirpHandler(w http.ResponseWriter, r *http.Request) {
 		msg := fmt.Sprintf("Unknow Error")
 		respondWithError(w, code , msg) 
 	}
+}
+
+
+func handlerCreateUser(w http.ResponseWriter, r *http.Request) {
+
+	decoder := json.NewDecoder(r.Body)
+    params := database.CreateUserParams{}
+    err := decoder.Decode(&params)
+    if err != nil {
+		log.Printf("Error decoding parameters: %s\n", err)
+		code := 500
+		msg := fmt.Sprintf("Error decoding parameters: %s\n", err)
+		respondWithError(w, code, msg) 
+    }
+
+	fmt.Printf("%s\n", params.Email)
+	user, err := dbQueries.CreateUser(r.Context, params)
+	if err != nil {
+		fmt.Errorf("Failed to create user!!!")
+	}
+	fmt.Printf("%s\n", user.Email)
 }
 
 

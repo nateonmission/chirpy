@@ -5,6 +5,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/google/uuid"
 	"time"
+	"github.com/chirpy/src/internal/database"
 
 )
 
@@ -13,6 +14,7 @@ import (
 type apiConfig struct {
 	fileServerHits atomic.Int32
 	platform string
+	dbQueries *database.Queries
 }
 
 type chirpToValidate struct {
@@ -26,6 +28,11 @@ type chirpError struct {
 type chirpValid struct {
 	Valid bool `json:"valid"`
 	CleanedBody string `json:"cleaned_body"`
+}
+
+
+type createUserParam struct {
+	Email	string `json:"email"`
 }
 
 

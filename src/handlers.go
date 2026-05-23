@@ -6,7 +6,7 @@ import(
 	"fmt"
 	"encoding/json"
 	"log"
-	"github.com/chirpy/src/internal/database"
+	"context"
 )
 
 func healthHandler(w http.ResponseWriter, r *http.Request){
@@ -27,11 +27,19 @@ func (cfg *apiConfig) metricsHandler(w http.ResponseWriter, r *http.Request){
 }
 
 func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request){
-	cfg.fileServerHits.Store(0)
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	body := fmt.Sprintf("Hits: %d\n", cfg.fileServerHits.Load())
-	w.Write([]byte(body))
+	if cfg.platform != "dev" {
+		code := 403
+		msg := fmt.Sprintf("403 Unauthorized")
+		respondWithError(w, code, msg) 
+	} else {
+		ctx := context.Background()
+		_ = cfg.dbQueries.DeleteAllUsers(ctx)
+		cfg.fileServerHits.Store(0)
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		body := fmt.Sprintf("Hits: %d\n", cfg.fileServerHits.Load())
+		w.Write([]byte(body))
+	}
 }
 
 func validateChirpHandler(w http.ResponseWriter, r *http.Request) {
@@ -60,24 +68,33 @@ func validateChirpHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 
-func handlerCreateUser(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	decoder := json.NewDecoder(r.Body)
-    params := database.CreateUserParams{}
+    params := createUserParam{}
     err := decoder.Decode(&params)
     if err != nil {
 		log.Printf("Error decoding parameters: %s\n", err)
 		code := 500
 		msg := fmt.Sprintf("Error decoding parameters: %s\n", err)
 		respondWithError(w, code, msg) 
+		return
     }
 
-	fmt.Printf("%s\n", params.Email)
-	user, err := dbQueries.CreateUser(r.Context, params)
+	// fmt.Printf("%s\n", params.Email)
+
+	user, err := cfg.dbQueries.CreateUser(r.Context(), params.Email)
 	if err != nil {
-		fmt.Errorf("Failed to create user!!!")
+		log.Printf("Failed to create user: %s", err)
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create user. user: %s already exists\n", params.Email))
+		return
 	}
-	fmt.Printf("%s\n", user.Email)
+
+	fmt.Printf("Created user: %s\n", user.Email)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(user)
 }
 
 

@@ -9,7 +9,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/chirpy/src/internal/database"
-	"context"
+	// "context"
 )
 
 
@@ -27,13 +27,18 @@ func main() {
 	if dbQueries != nil {
 		fmt.Printf("Database Loaded!\n")
 	}
-	ctx := context.Background()
-	_ = dbQueries.DeleteAllUsers(ctx)
+	// ctx := context.Background()
+	// _ = dbQueries.DeleteAllUsers(ctx)
 
 
-	cfg := &apiConfig{}
+	cfg := &apiConfig{
+		platform: os.Getenv("PLATFORM"),
+		dbQueries: dbQueries,
+
+	}
 	cfg.fileServerHits.Store(0)
-	cfg.platform := os.Getenv("PLATFORM")
+	
+
 	mux := http.NewServeMux()
 
 	fs := http.FileServer(http.Dir("./public_html"))
@@ -43,7 +48,7 @@ func main() {
 
 	mux.HandleFunc("POST /api/validate_chirp", validateChirpHandler)
 	mux.HandleFunc("GET /api/healthz", healthHandler)
-	mux.HandleFunc("POST /api/users", handlerCreateUser)
+	mux.HandleFunc("POST /api/users", cfg.handlerCreateUser)
 	mux.HandleFunc("GET /admin/metrics", cfg.metricsHandler)
 	mux.HandleFunc("POST /admin/reset", cfg.resetHandler)
 

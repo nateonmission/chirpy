@@ -43,6 +43,33 @@ func respondWithJSON(w http.ResponseWriter, code int, payload chirpToValidate)  
 
 }
 
+
+// func validateChirp(chirp string) {
+// 	decoder := json.NewDecoder(r.Body)
+//     params := chirpToValidate{}
+//     err := decoder.Decode(&params)
+//     if err != nil {
+// 		log.Printf("Error decoding parameters: %s", err)
+// 		code := 500
+// 		msg := fmt.Sprintf("Error decoding parameters: %s", err)
+// 		respondWithError(w, code, msg) 
+//     }
+
+// 	if len(chirp) <= 140 {
+// 		code := 200
+// 		respondWithJSON(w, code, params)
+// 	} else if len(chirp) > 140 {
+// 		code := 400
+// 		msg := fmt.Sprintf("Chirp is too long")
+// 		respondWithError(w, code, msg) 
+// 	} else {
+// 		code := 500
+// 		msg := fmt.Sprintf("Unknow Error")
+// 		respondWithError(w, code , msg) 
+// 	}
+// }
+
+
 func censorChirp(s string) string {
 	dirtyWords := []string{"kerfuffle", "sharbert", "fornax"}
 	words := strings.Split(s, " ")

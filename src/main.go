@@ -49,8 +49,10 @@ func main() {
 	// mux.HandleFunc("POST /api/validate_chirp", validateChirpHandler)
 	mux.HandleFunc("GET /api/healthz", healthHandler)
 	mux.HandleFunc("POST /api/users", cfg.createUserHandler)
+	mux.HandleFunc("POST /api/login", cfg.loginUserHandler)
 	mux.HandleFunc("POST /api/chirps", cfg.createChirpHandler)
 	mux.HandleFunc("GET /api/chirps", cfg.getAllChirpsHandler)
+	mux.HandleFunc("GET /api/chirps/{chirpID}", cfg.getChirpByIDHandler)
 
 	mux.HandleFunc("GET /admin/metrics", cfg.metricsHandler)
 	mux.HandleFunc("POST /admin/reset", cfg.resetHandler)

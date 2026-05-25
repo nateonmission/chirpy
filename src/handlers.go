@@ -8,6 +8,8 @@ import(
 	"log"
 	"context"
 	"github.com/chirpy/src/internal/database"
+	"github.com/chirpy/src/internal/auth"
+	"github.com/google/uuid"
 )
 
 func healthHandler(w http.ResponseWriter, r *http.Request){
@@ -50,8 +52,8 @@ func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request){
 func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	decoder := json.NewDecoder(r.Body)
-    params := createUserParam{}
-    err := decoder.Decode(&params)
+    userBase := CreateUserStruct{}
+    err := decoder.Decode(&userBase)
     if err != nil {
 		log.Printf("Error decoding parameters: %s\n", err)
 		code := 500
@@ -60,9 +62,23 @@ func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
     }
 
+	hashedPassword, err := auth.HashPassword(userBase.Password);
+	if err != nil {
+		log.Printf("Error hashing password: %s\n", err)
+		code := 500
+		msg := fmt.Sprintf("Error hashing password: %s\n", err)
+		respondWithError(w, code, msg)
+		return
+	}
+	
+	params := database.CreateUserParams{
+		Email: userBase.Email,
+		HashedPassword: hashedPassword,
+	}
+
 	// fmt.Printf("%s\n", params.Email)
 
-	user, err := cfg.dbQueries.CreateUser(r.Context(), params.Email)
+	user, err := cfg.dbQueries.CreateUser(r.Context(), params)
 	if err != nil {
 		log.Printf("Failed to create user: %s", err)
 		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create user. user: %s already exists\n", params.Email))
@@ -150,6 +166,73 @@ func (cfg *apiConfig) getAllChirpsHandler(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(chirps)
 	return
 
+}
+
+func (cfg *apiConfig) getChirpByIDHandler(w http.ResponseWriter, r *http.Request) {
+	chirpID_string := r.PathValue("chirpID")
+	chirpID, err := uuid.Parse(chirpID_string)
+	if err != nil {
+		log.Fatalf("failed to parse UUID: %v", err)
+	}
+
+	chirp, err := cfg.dbQueries.GetChirpByID(r.Context(), chirpID)
+	if err != nil {
+		log.Printf("Failed to get chirp: %s\n", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to load chirps\n"))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json");
+	w.WriteHeader(http.StatusOK);
+	json.NewEncoder(w).Encode(chirp);
+	return;
+
+
+
+}
+
+func (cfg *apiConfig) loginUserHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+    userBase := CreateUserStruct{}
+    err := decoder.Decode(&userBase)
+    if err != nil {
+		log.Printf("Error decoding parameters: %s\n", err)
+		code := 500
+		msg := fmt.Sprintf("Error decoding parameters: %s\n", err)
+		respondWithError(w, code, msg) 
+		return
+    }
+
+	user, err := cfg.dbQueries.GetUserByEmail(r.Context(), userBase.Email)
+	if err != nil {
+		log.Printf("Failed to get user: %s\n", err)
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to load user\n"))
+		return
+	}
+
+	if validate, err := auth.CheckPasswordHash(userBase.Password, user.HashedPassword); validate && err == nil {
+		cfg.loggedinUser = user.ID
+		log.Printf("User %s logged in successfully\n", user.Email)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		respUser := User{
+			ID: user.ID,
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
+			Email: user.Email,
+		}
+		json.NewEncoder(w).Encode(respUser)
+		return
+	} else {
+		log.Printf("User %s failed to log in\n", user.Email)
+		code := 401
+		msg := fmt.Sprintf("Invalid credentials")
+		respondWithError(w, code, msg) 
+		return
+	}
+	
 }
 
 

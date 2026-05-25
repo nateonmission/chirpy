@@ -15,6 +15,7 @@ type apiConfig struct {
 	fileServerHits atomic.Int32
 	platform string
 	dbQueries *database.Queries
+	loggedinUser uuid.UUID
 }
 
 type chirpToValidate struct {
@@ -31,8 +32,9 @@ type chirpValid struct {
 }
 
 
-type createUserParam struct {
-	Email	string `json:"email"`
+type CreateUserStruct struct {
+	Email          string `json:"email"`
+	Password string `json:"password"`
 }
 
 

@@ -16,6 +16,7 @@ type apiConfig struct {
 	platform string
 	dbQueries *database.Queries
 	loggedinUser uuid.UUID
+	tokenSecret string
 }
 
 type chirpToValidate struct {
@@ -35,6 +36,7 @@ type chirpValid struct {
 type CreateUserStruct struct {
 	Email          string `json:"email"`
 	Password string `json:"password"`
+	ExpiresInSeconds *int `json:"expires_in_seconds"`
 }
 
 
@@ -43,6 +45,7 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
+	Token     string    `json:"token"`
 }
 
 // type receivedChirp struct {

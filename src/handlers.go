@@ -7,6 +7,7 @@ import(
 	"encoding/json"
 	"log"
 	"context"
+	"time"
 	"github.com/chirpy/src/internal/database"
 	"github.com/chirpy/src/internal/auth"
 	"github.com/google/uuid"
@@ -92,53 +93,60 @@ func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(user)
 }
 
+// 
 func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request) {
+	type chirpRequest struct {
+		Body string `json:"body"`
+	}
 
 	decoder := json.NewDecoder(r.Body)
-    params := database.CreateChirpParams{}
-    err := decoder.Decode(&params)
-    if err != nil {
+	params := chirpRequest{}
+	err := decoder.Decode(&params)
+	if err != nil {
 		log.Printf("Error decoding parameters: %s\n", err)
-		code := 500
-		msg := fmt.Sprintf("Error decoding parameters: %s\n", err)
-		respondWithError(w, code, msg) 
-		return
-    }
-
-	if len(params.Body) <= 140 {
-		chirp, err := cfg.dbQueries.CreateChirp(r.Context(), params)
-		if err != nil {
-			log.Printf("Failed to create chirp: %s\n", err)
-			respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create chirp.\n"))
-			return
-		}
-
-		fmt.Printf("%s\n", chirp.ID)
-
-		user, err := cfg.dbQueries.GetUserByID(r.Context(), chirp.UserID)
-		if err != nil {
-			log.Printf("Failed to create user: %s\n", err)
-			respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to load user\n"))
-			return
-		}
-
-		fmt.Printf("User, %s, chiped: '%s'\n", user.Email, chirp.Body)
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(chirp)
-		return
-	} else if len(params.Body) > 140 {
-		code := 400
-		msg := fmt.Sprintf("Chirp is too long")
-		respondWithError(w, code, msg) 
-		return
-	} else {
-		code := 500
-		msg := fmt.Sprintf("Unknow Error")
-		respondWithError(w, code , msg) 
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Error decoding parameters: %s\n", err))
 		return
 	}
+
+	if len(params.Body) > 140 {
+		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
+		return
+	}
+
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		log.Printf("Error getting bearer token: %s\n", err)
+		respondWithError(w, http.StatusUnauthorized, fmt.Sprintf("Error getting bearer token: %s\n", err))
+		return
+	}
+
+	claims, err := auth.ValidateJWT(token, cfg.tokenSecret)
+	if err != nil {
+		log.Printf("Error validating JWT: %s\n", err)
+		respondWithError(w, http.StatusUnauthorized, fmt.Sprintf("Error validating JWT: %s\n", err))
+		return
+	}
+
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		log.Printf("Invalid user ID in JWT subject: %s\n", err)
+		respondWithError(w, http.StatusUnauthorized, "Invalid user ID in JWT subject")
+		return
+	}
+
+	chirp, err := cfg.dbQueries.CreateChirp(r.Context(), database.CreateChirpParams{
+		Body:   params.Body,
+		UserID: userID,
+	})
+	if err != nil {
+		log.Printf("Failed to create chirp: %s\n", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to create chirp.\n")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(chirp)
 }
 
 func (cfg *apiConfig) getAllChirpsHandler(w http.ResponseWriter, r *http.Request) {
@@ -217,11 +225,27 @@ func (cfg *apiConfig) loginUserHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("User %s logged in successfully\n", user.Email)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
+
+		expiresIn := time.Hour
+
+		if userBase.ExpiresInSeconds != nil {
+			expiresIn = time.Duration(*userBase.ExpiresInSeconds) * time.Second
+		}
+		token, err := auth.MakeJWT(user.ID, cfg.tokenSecret, expiresIn)
+		if err != nil {
+			log.Printf("Error creating JWT: %s\n", err)
+			code := 500
+			msg := fmt.Sprintf("Error creating JWT: %s\n", err)
+			respondWithError(w, code, msg) 
+			return
+		}
+
 		respUser := User{
 			ID: user.ID,
 			CreatedAt: user.CreatedAt,
 			UpdatedAt: user.UpdatedAt,
 			Email: user.Email,
+			Token: token,
 		}
 		json.NewEncoder(w).Encode(respUser)
 		return

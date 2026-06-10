@@ -37,6 +37,7 @@ func main() {
 
 	}
 	cfg.fileServerHits.Store(0)
+	cfg.tokenSecret = os.Getenv("JWT_SECRET")
 	
 
 	mux := http.NewServeMux()

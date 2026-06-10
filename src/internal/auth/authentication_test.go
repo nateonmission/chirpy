@@ -3,6 +3,7 @@ package auth
 import (
 	"testing"
 	"time"
+	"net/http"
 	"github.com/google/uuid"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -165,5 +166,88 @@ func TestValidateJWTRejectsWrongSigningMethod(t *testing.T) {
 	_, err = ValidateJWT(tokenString, string(privateKey))
 	if err == nil {
 		t.Fatal("expected error validating JWT with wrong signing method, got nil")
+	}
+}
+
+
+func TestGetBearerToken(t *testing.T) {
+	tests := []struct {
+		name        string
+		headers     http.Header
+		wantToken   string
+		wantErr     bool
+	}{
+		{
+			name: "valid bearer token",
+			headers: http.Header{
+				"Authorization": []string{"Bearer abc123"},
+			},
+			wantToken: "abc123",
+			wantErr:   false,
+		},
+		{
+			name: "valid bearer token with extra spaces around token",
+			headers: http.Header{
+				"Authorization": []string{"Bearer    abc123   "},
+			},
+			wantToken: "abc123",
+			wantErr:   false,
+		},
+		{
+			name:      "missing authorization header",
+			headers:   http.Header{},
+			wantToken: "",
+			wantErr:   true,
+		},
+		{
+			name: "authorization header without bearer scheme",
+			headers: http.Header{
+				"Authorization": []string{"abc123"},
+			},
+			wantToken: "",
+			wantErr:   true,
+		},
+		{
+			name: "wrong scheme",
+			headers: http.Header{
+				"Authorization": []string{"Basic abc123"},
+			},
+			wantToken: "",
+			wantErr:   true,
+		},
+		{
+			name: "lowercase bearer is invalid",
+			headers: http.Header{
+				"Authorization": []string{"bearer abc123"},
+			},
+			wantToken: "",
+			wantErr:   true,
+		},
+		{
+			name: "bearer with no token returns empty token",
+			headers: http.Header{
+				"Authorization": []string{"Bearer "},
+			},
+			wantToken: "",
+			wantErr:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotToken, err := GetBearerToken(tt.headers)
+
+			if tt.wantErr && err == nil {
+				t.Fatal("expected error, got nil")
+			}
+
+			if !tt.wantErr && err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+
+			if gotToken != tt.wantToken {
+				t.Errorf("expected token %q, got %q", tt.wantToken, gotToken)
+			}
+		})
 	}
 }

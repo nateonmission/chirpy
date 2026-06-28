@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"github.com/google/uuid"
 	"github.com/golang-jwt/jwt/v5"
+	"encoding/hex"
 )
 
 func TestHashPasswordAndCheckPasswordHash(t *testing.T) {
@@ -249,5 +250,169 @@ func TestGetBearerToken(t *testing.T) {
 				t.Errorf("expected token %q, got %q", tt.wantToken, gotToken)
 			}
 		})
+	}
+}
+
+
+func TestMakeRefreshTokenReturnsString(t *testing.T) {
+	token := MakeRefreshToken()
+
+	if token == "" {
+		t.Fatal("expected refresh token, got empty string")
+	}
+}
+
+func TestMakeRefreshTokenLength(t *testing.T) {
+	token := MakeRefreshToken()
+
+	// 32 random bytes encoded as hex = 64 characters
+	if len(token) != 64 {
+		t.Fatalf("expected token length 64, got %d", len(token))
+	}
+}
+
+func TestMakeRefreshTokenIsValidHex(t *testing.T) {
+	token := MakeRefreshToken()
+
+	decoded, err := hex.DecodeString(token)
+	if err != nil {
+		t.Fatalf("expected valid hex string, got error: %v", err)
+	}
+
+	if len(decoded) != 32 {
+		t.Fatalf("expected decoded token to be 32 bytes, got %d", len(decoded))
+	}
+}
+
+func TestMakeRefreshTokenGeneratesDifferentTokens(t *testing.T) {
+	token1 := MakeRefreshToken()
+	token2 := MakeRefreshToken()
+
+	if token1 == token2 {
+		t.Fatal("expected two refresh tokens to be different")
+	}
+}
+
+func TestMakeRefreshTokenGeneratesManyUniqueTokens(t *testing.T) {
+	seen := make(map[string]bool)
+
+	for i := 0; i < 1000; i++ {
+		token := MakeRefreshToken()
+
+		if seen[token] {
+			t.Fatalf("duplicate token generated at iteration %d: %s", i, token)
+		}
+
+		seen[token] = true
+	}
+}
+
+func TestMakeRefreshTokenLengthAndHex(t *testing.T) {
+	token := MakeRefreshToken()
+
+	if len(token) != 64 {
+		t.Fatalf("expected refresh token length 64, got %d", len(token))
+	}
+
+	decoded, err := hex.DecodeString(token)
+	if err != nil {
+		t.Fatalf("expected valid hex token, got error: %v", err)
+	}
+
+	if len(decoded) != 32 {
+		t.Fatalf("expected decoded token to be 32 bytes, got %d", len(decoded))
+	}
+}
+
+func TestMakeRefreshTokenGeneratesUniqueTokens(t *testing.T) {
+	seen := make(map[string]bool)
+
+	for i := 0; i < 1000; i++ {
+		token := MakeRefreshToken()
+
+		if seen[token] {
+			t.Fatalf("duplicate refresh token generated: %s", token)
+		}
+
+		seen[token] = true
+	}
+}
+
+func TestMakeJWTStoresUserIDInSubject(t *testing.T) {
+	userID := uuid.New()
+	tokenSecret := "test-secret"
+
+	tokenString, err := MakeJWT(userID, tokenSecret, time.Hour)
+	if err != nil {
+		t.Fatalf("expected no error creating JWT, got %v", err)
+	}
+
+	claims, err := ValidateJWT(tokenString, tokenSecret)
+	if err != nil {
+		t.Fatalf("expected valid JWT, got error: %v", err)
+	}
+
+	if claims.Subject != userID.String() {
+		t.Fatalf("expected subject %s, got %s", userID.String(), claims.Subject)
+	}
+}
+
+func TestMakeJWTUsesExpirationDuration(t *testing.T) {
+	userID := uuid.New()
+	tokenSecret := "test-secret"
+
+	before := time.Now()
+
+	tokenString, err := MakeJWT(userID, tokenSecret, time.Hour)
+	if err != nil {
+		t.Fatalf("expected no error creating JWT, got %v", err)
+	}
+
+	claims, err := ValidateJWT(tokenString, tokenSecret)
+	if err != nil {
+		t.Fatalf("expected valid JWT, got error: %v", err)
+	}
+
+	if claims.ExpiresAt == nil {
+		t.Fatal("expected JWT to have exp claim")
+	}
+
+	minExpected := before.Add(time.Hour - 5*time.Second)
+	maxExpected := time.Now().Add(time.Hour + 5*time.Second)
+
+	if claims.ExpiresAt.Time.Before(minExpected) || claims.ExpiresAt.Time.After(maxExpected) {
+		t.Fatalf(
+			"expected expiration about 1 hour from now, got %s",
+			claims.ExpiresAt.Time,
+		)
+	}
+}
+
+func TestValidateJWTRejectsExpiredToken(t *testing.T) {
+	userID := uuid.New()
+	tokenSecret := "test-secret"
+
+	tokenString, err := MakeJWT(userID, tokenSecret, -time.Hour)
+	if err != nil {
+		t.Fatalf("expected no error creating expired JWT, got %v", err)
+	}
+
+	_, err = ValidateJWT(tokenString, tokenSecret)
+	if err == nil {
+		t.Fatal("expected expired JWT to be rejected")
+	}
+}
+
+func TestValidateJWTRejectsWrongSecret(t *testing.T) {
+	userID := uuid.New()
+
+	tokenString, err := MakeJWT(userID, "correct-secret", time.Hour)
+	if err != nil {
+		t.Fatalf("expected no error creating JWT, got %v", err)
+	}
+
+	_, err = ValidateJWT(tokenString, "wrong-secret")
+	if err == nil {
+		t.Fatal("expected JWT with wrong secret to be rejected")
 	}
 }

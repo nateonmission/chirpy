@@ -36,7 +36,6 @@ type chirpValid struct {
 type CreateUserStruct struct {
 	Email          string `json:"email"`
 	Password string `json:"password"`
-	ExpiresInSeconds *int `json:"expires_in_seconds"`
 }
 
 
@@ -46,6 +45,7 @@ type User struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
 	Token     string    `json:"token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 // type receivedChirp struct {
@@ -64,4 +64,8 @@ type Chirp struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	Body	string    `json:"body"`
 	User_ID	uuid.UUID	`json:"user_id"`
+}
+
+type refreshResponse struct {
+	Token string `json:"token"`
 }

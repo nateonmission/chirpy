@@ -8,6 +8,8 @@ import (
 	"time"
 	"strings"
 	"net/http"
+	"crypto/rand"
+	"encoding/hex"
 )
 
 func HashPassword(password string) (string, error) {
@@ -79,3 +81,15 @@ func GetBearerToken(headers http.Header) (string, error) {
 	}
 	return trimmed, nil
 }
+
+
+func MakeRefreshToken() string {
+	tokenBytes := make([]byte, 32)
+	_, err := rand.Read(tokenBytes)
+	if err != nil {
+		panic(fmt.Sprintf("Error generating refresh token: %s", err))
+	}
+
+	return hex.EncodeToString(tokenBytes)
+}
+

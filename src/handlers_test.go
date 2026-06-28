@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	_ "github.com/lib/pq"
 )
 
 func TestHealthHandler(t *testing.T) {
@@ -25,3 +27,5 @@ func TestHealthHandler(t *testing.T) {
 		t.Fatalf("got body %q, want %q", string(body), "200 OK")
 	}
 }
+
+

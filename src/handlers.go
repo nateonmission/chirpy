@@ -93,6 +93,74 @@ func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(user)
 }
 
+func (cfg *apiConfig) updateUserHandler(w http.ResponseWriter, r *http.Request) {
+	
+	tokenString, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		log.Printf("Error getting bearer token: %s\n", err)
+		respondWithError(w, http.StatusUnauthorized, fmt.Sprintf("Error getting bearer token: %s\n", err))
+		return
+	}
+
+	claims, err := auth.ValidateJWT(tokenString, cfg.tokenSecret)
+	if err != nil {
+		log.Printf("Error validating JWT: %s\n", err)
+		respondWithError(w, http.StatusUnauthorized, fmt.Sprintf("Error validating JWT: %s\n", err))
+		return
+	}
+
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		log.Printf("Invalid user ID in JWT subject: %s\n", err)
+		respondWithError(w, http.StatusUnauthorized, "Invalid user ID in JWT subject")
+		return
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	userBase := CreateUserStruct{}
+	err = decoder.Decode(&userBase)
+	if err != nil {
+		log.Printf("Error decoding parameters: %s\n", err)
+		code := http.StatusBadRequest
+		msg := fmt.Sprintf("Error decoding parameters: %s\n", err)
+		respondWithError(w, code, msg)
+		return
+	}
+
+	hashedPassword, err := auth.HashPassword(userBase.Password)
+	if err != nil {
+		log.Printf("Error hashing password: %s\n", err)
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Error hashing password: %s\n", err))
+		return
+	}
+
+	params := database.UpdateUserParams{
+		ID:             userID,
+		Email:          userBase.Email,
+		HashedPassword: hashedPassword,
+	}
+
+	user, err := cfg.dbQueries.UpdateUser(r.Context(), params)
+	if err != nil {
+		log.Printf("Failed to update user: %s\n", err)
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update user. user: %s may not exist\n", params.Email))
+		return
+	}
+
+	returnUser := User{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email:     user.Email,
+	}
+
+	log.Printf("Updated user: %s\n", user.Email)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(returnUser)
+}
+
 // 
 func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request) {
 	type chirpRequest struct {

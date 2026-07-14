@@ -69,3 +69,8 @@ type Chirp struct {
 type refreshResponse struct {
 	Token string `json:"token"`
 }
+
+type updateUserRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}

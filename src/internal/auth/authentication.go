@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
+	
 )
 
 func HashPassword(password string) (string, error) {
@@ -91,5 +93,27 @@ func MakeRefreshToken() string {
 	}
 
 	return hex.EncodeToString(tokenBytes)
+}
+
+func GetAPIKey(headers http.Header) (string, error) {
+	authHeader := headers.Get("Authorization")
+	if authHeader == "" {
+		return "", errors.New("authorization header missing")
+	}
+
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 {
+		return "", errors.New("invalid authorization header format")
+	}
+
+	if parts[0] != "ApiKey" {
+		return "", errors.New("authorization header must start with ApiKey")
+	}
+
+	if parts[1] == "" {
+		return "", errors.New("API key is empty")
+	}
+
+	return parts[1], nil
 }
 

@@ -1,22 +1,20 @@
 package main
 
 import (
-	"sync/atomic"
-	_ "github.com/lib/pq"
-	"github.com/google/uuid"
-	"time"
 	"github.com/chirpy/src/internal/database"
-
+	"github.com/google/uuid"
+	_ "github.com/lib/pq"
+	"sync/atomic"
+	"time"
 )
-
-
 
 type apiConfig struct {
 	fileServerHits atomic.Int32
-	platform string
-	dbQueries *database.Queries
-	loggedinUser uuid.UUID
-	tokenSecret string
+	platform       string
+	dbQueries      *database.Queries
+	loggedinUser   uuid.UUID
+	tokenSecret    string
+	polkaKey       string
 }
 
 type chirpToValidate struct {
@@ -28,24 +26,23 @@ type chirpError struct {
 }
 
 type chirpValid struct {
-	Valid bool `json:"valid"`
+	Valid       bool   `json:"valid"`
 	CleanedBody string `json:"cleaned_body"`
 }
 
-
 type CreateUserStruct struct {
-	Email          string `json:"email"`
+	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
-
 type User struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
-	Token     string    `json:"token"`
-	RefreshToken string `json:"refresh_token"`
+	ID           uuid.UUID `json:"id"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	Email        string    `json:"email"`
+	Token        string    `json:"token"`
+	RefreshToken string    `json:"refresh_token"`
+	IsChirpyRed  bool      `json:"is_chirpy_red"`
 }
 
 // type receivedChirp struct {
@@ -54,16 +51,16 @@ type User struct {
 // }
 
 type CreateChirpParams struct {
-	Body   string	`json:"body"`
-	UserID uuid.UUID	`json:"user_id"`
+	Body   string    `json:"body"`
+	UserID uuid.UUID `json:"user_id"`
 }
 
 type Chirp struct {
 	ID        uuid.UUID `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
-	Body	string    `json:"body"`
-	User_ID	uuid.UUID	`json:"user_id"`
+	Body      string    `json:"body"`
+	User_ID   uuid.UUID `json:"user_id"`
 }
 
 type refreshResponse struct {
@@ -73,4 +70,13 @@ type refreshResponse struct {
 type updateUserRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+type WebhookObject struct {
+	Event string      `json:"event,omitempty"`
+	Data  WebhookData `json:"data,omitempty"`
+}
+
+type WebhookData struct {
+	UserId string `json:"user_id,omitempty"`
 }

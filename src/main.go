@@ -27,6 +27,7 @@ func main() {
 	if dbQueries != nil {
 		fmt.Printf("Database Loaded!\n")
 	}
+
 	// ctx := context.Background()
 	// _ = dbQueries.DeleteAllUsers(ctx)
 
@@ -34,6 +35,7 @@ func main() {
 	cfg := &apiConfig{
 		platform: os.Getenv("PLATFORM"),
 		dbQueries: dbQueries,
+		polkaKey: os.Getenv("POLKA_KEY"),
 
 	}
 	cfg.fileServerHits.Store(0)
@@ -49,7 +51,7 @@ func main() {
 
 	// mux.HandleFunc("POST /api/validate_chirp", validateChirpHandler)
 	mux.HandleFunc("GET /api/healthz", healthHandler)
-	
+
 	mux.HandleFunc("POST /api/users", cfg.createUserHandler)
 	mux.HandleFunc("PUT /api/users", cfg.updateUserHandler)
 
@@ -60,9 +62,13 @@ func main() {
 	mux.HandleFunc("POST /api/chirps", cfg.createChirpHandler)
 	mux.HandleFunc("GET /api/chirps", cfg.getAllChirpsHandler)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", cfg.getChirpByIDHandler)
+	mux.HandleFunc("DELETE /api/chirps/{chirpID}", cfg.deleteChirpHandler)
+
+	mux.HandleFunc("POST /api/polka/webhooks", cfg.polkaWebhookHandler)
 
 	mux.HandleFunc("GET /admin/metrics", cfg.metricsHandler)
 	mux.HandleFunc("POST /admin/reset", cfg.resetHandler)
+
 
 	server := http.Server{
 		Addr: ":8080",
